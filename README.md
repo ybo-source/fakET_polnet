@@ -50,13 +50,13 @@ pip install numpy pandas scipy mrcfile scikit-image
 ### Basic Command
 
 ```bash
-python pipeline.py /path/to/base_directory
+python main.py /path/to/base_directory
 ```
 
 ### Complete Example
 
 ```bash
-python pipeline.py /path/to/base_directory \
+python main.py /path/to/base_directory \
     --micrograph_index 0 \
     --style_index 1 \
     --simulation_index 0 \
