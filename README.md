@@ -1,6 +1,6 @@
-# Style Transfer Pipeline for Cryo-ET Data
+# Style Transfer Pipeline for Synthetic Cryo-ET Data
 
-A comprehensive pipeline for applying style transfer to cryo-electron tomography (cryo-ET) data using faket, with support for micrograph projection, reconstruction, and training data preparation.
+A comprehensive pipeline for applying style transfer to synthetic cryo-electron tomography (cryo-ET) data using faket, with support for micrograph projection, reconstruction, and training data preparation.
 
 ## Overview
 
