@@ -19,8 +19,7 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 - NumPy
 - Pandas
 - scikit-learn
-- [faket](https://github.com/teamtomo/faket) - for neural style transfer
-- [svnet](https://github.com/your-username/svnet) - for cryo-ET data processing utilities
+- [faket](https://github.com/paloha/faket.git) - for neural style transfer
 
 ### Optional Dependencies
 - CUDA-enabled GPU (recommended for faster style transfer)
