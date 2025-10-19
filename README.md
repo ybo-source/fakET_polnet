@@ -29,8 +29,8 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/your-username/cryoet-style-transfer-pipeline.git
-cd cryoet-style-transfer-pipeline
+git clone https://github.com/ybo-source/fakET_polnet.git
+cd fakET_polnet
 ```
 
 2. Install the required Python packages:
