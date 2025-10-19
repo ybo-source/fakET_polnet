@@ -43,26 +43,38 @@ def parse_arguments():
     parser.add_argument('--random_faket', action='store_true', default=True, help='Use random faket style transfer')
     parser.add_argument('--simulation_name', type=str, default="all_v_czii", help='Simulation name')
     
-    # Faket command parameters
-    parser.add_argument('--faket_command', type=str, default="python -m faket.style_transfer.cli", 
-                       help='Command to run faket style transfer (can be full path or command available in PATH)')
-    parser.add_argument('--cuda_device', type=str, default="0", help='CUDA device to use (e.g., "0", "1", "cuda:0")')
+    # Faket parameters
+    parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
+    parser.add_argument('--faket_iterations', type=int, default=5, help='Number of iterations for faket style transfer')
+    parser.add_argument('--faket_step_size', type=float, default=0.15, help='Step size for faket')
+    parser.add_argument('--faket_min_scale', type=int, default=630, help='Minimum scale for faket')
+    parser.add_argument('--faket_end_scale', type=int, default=630, help='End scale for faket')
     
     return parser.parse_args()
 
 def validate_directories(base_dir, simulation_index, style_index):
     """Validate that required directories exist"""
     simulation_dir = f"{base_dir}/simulation_dir_{simulation_index}"
-    style_dir = f"{base_dir}/style_micrographs_{style_index}"
+    style_tomo_dir = f"{base_dir}/style_tomograms_{style_index}"
+    style_dir = f"{base_dir}/faket_data/style_micrographs_{style_index}"
     
     if not os.path.exists(simulation_dir):
         raise ValueError(f"Simulation directory not found: {simulation_dir}")
-    if not os.path.exists(style_dir):
-        raise ValueError(f"Style directory not found: {style_dir}")
+    
+    # Check if either style_tomo_dir or style_dir exists
+    style_tomo_exists = os.path.exists(style_tomo_dir)
+    style_dir_exists = os.path.exists(style_dir)
+    
+    if not style_tomo_exists and not style_dir_exists:
+        raise ValueError(f"Neither style tomogram directory {style_tomo_dir} nor style directory {style_dir} found. At least one must exist.")
     
     print(f"Found simulation directory: {simulation_dir}")
-    print(f"Found style directory: {style_dir}")
-    return simulation_dir, style_dir
+    if style_tomo_exists:
+        print(f"Found style tomogram directory: {style_tomo_dir}")
+    if style_dir_exists:
+        print(f"Found style directory: {style_dir}")
+    
+    return simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists
 
 def main():
     args = parse_arguments()
@@ -71,7 +83,7 @@ def main():
     base_dir = args.base_dir
     
     # Validate that required directories exist
-    simulation_dir, style_tomo_dir = validate_directories(base_dir, args.simulation_index, args.style_index)
+    simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists = validate_directories(base_dir, args.simulation_index, args.style_index)
     
     # Set parameters from arguments
     micrograph_index = args.micrograph_index
@@ -86,8 +98,13 @@ def main():
     denoised = args.denoised
     random_faket = args.random_faket
     simulation_name = args.simulation_name
-    faket_command = args.faket_command
-    cuda_device = args.cuda_device
+    
+    # Faket parameters
+    faket_gpu = args.faket_gpu
+    faket_iterations = args.faket_iterations
+    faket_step_size = args.faket_step_size
+    faket_min_scale = args.faket_min_scale
+    faket_end_scale = args.faket_end_scale
     
     # Calculate seq_end
     seq_end = len(np.arange(*tilt_range))
@@ -103,15 +120,20 @@ def main():
     csv_dir_list = [os.path.join(d, "csv") for d in get_absolute_paths(simulation_base_dir)]
 
     out_base_dir_style = f"{base_dir}/style_micrographs_output_{style_index}"
-    style_dir = f"{base_dir}/faket_data/style_micrographs_{style_index}"
 
-    # Check if the style_path exists
-    if os.path.exists(out_base_dir_style):
-        print("style path already exists")
-    else:
+    # Handle style directory logic
+    if style_dir_exists:
+        print("Style directory already exists, skipping projection and copy.")
+    elif style_tomo_exists:
+        # Only run projection if style_tomo_dir exists and style_dir doesn't exist
+        print("Style tomogram directory found but style directory doesn't exist. Running projection...")
         os.makedirs(out_base_dir_style, exist_ok=True)
         project_style_micrographs(style_tomo_dir, out_base_dir_style, tilt_range=tilt_range, ax="Y", cluster_run=False, projection_threshold=100)
         copy_style_micrographs(out_base_dir_style, style_dir, copy_flag=False)
+        print(f"Style projection completed and copied to: {style_dir}")
+    else:
+        # This should not happen due to validation, but just in case
+        raise ValueError("No style directory available")
 
     # Label transformation
     if not os.path.exists(out_dir):
@@ -126,15 +148,23 @@ def main():
             add_misalignment=True, simulation_threshold=1
         )
 
-    STYLE_DIR = f"{base_dir}/faket_data/style_micrographs_{style_index}"
+    STYLE_DIR = style_dir  # Use the validated style directory
 
     # Define directories
     CLEAN_DIR = f"{base_dir}/micrograph_directory_{micrograph_directory_index}/micrographs_output_dir_{micrograph_index}/Micrographs" 
     OUTPUT_DIR = f"{base_dir}/micrograph_directory_{micrograph_directory_index}/faket_mics_style_transfer_{faket_index}"
 
+    # Create OUTPUT_DIR if it doesn't exist
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     # Find all clean tomograms
     clean_tomograms = subprocess.run(f"find {CLEAN_DIR} -name 'tomo_mics_clean_*.mrc'", 
                                     shell=True, capture_output=True, text=True).stdout.splitlines()
+    
+    if not clean_tomograms:
+        print(f"No clean tomograms found in {CLEAN_DIR}")
+        return
+    
     for CLEAN_TOMOGRAM in clean_tomograms:
         TOMOGRAM_DIR = CLEAN_TOMOGRAM.split('/')[-2]
         CLEAN_ID = CLEAN_TOMOGRAM.split('_')[-1].replace('.mrc', '')
@@ -146,31 +176,64 @@ def main():
         if not NOISY_TOMOGRAM:
             print(f"Noisy tomogram not found for {TOMOGRAM_DIR}. Skipping...")
             continue
+        
         if random_faket:
             STYLE_TOMOGRAM_CMD = f"find {STYLE_DIR} -name '*.mrc' | shuf -n 1"
             STYLE_TOMOGRAM = subprocess.run(STYLE_TOMOGRAM_CMD, shell=True, capture_output=True, text=True).stdout.strip()
-        
+        else:
+            # If not random, you might want to implement specific style selection logic here
+            STYLE_TOMOGRAM_CMD = f"find {STYLE_DIR} -name '*.mrc' | head -n 1"
+            STYLE_TOMOGRAM = subprocess.run(STYLE_TOMOGRAM_CMD, shell=True, capture_output=True, text=True).stdout.strip()
+
         OUTPUT_TOMOGRAM = f"{OUTPUT_DIR}/tomo_style_transfer_{TOMOGRAM_DIR}.mrc"
         print(f"Output Tomogram: {OUTPUT_TOMOGRAM}")
-        if os.path.exists(OUTPUT_TOMOGRAM):
-            continue
-        print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
-
-        # General faket command that works with any environment setup
-        style_transfer_cmd = (
-            f"CUDA_VISIBLE_DEVICES={cuda_device} {faket_command} {CLEAN_TOMOGRAM} {STYLE_TOMOGRAM} "
-            f"--init {NOISY_TOMOGRAM} "
-            f"--output {OUTPUT_TOMOGRAM} --devices cuda:0 --random-seed 0 --min-scale 630 "
-            f"--end-scale 630 --seq_start 0 --seq_end {seq_end} --style-weights 1.0 --content-weight 1.0 --tv-weight 0 --iterations 5 "
-            f"--initial-iterations 1 --save-every 2 --step-size 0.15 --avg-decay 0.99 --style-scale-fac 1.0 --pooling max --content_layers 8 "
-            f"--content_layers_weights 100 --model_weights pretrained"
-        )
         
         if os.path.exists(OUTPUT_TOMOGRAM):
+            print(f"Output tomogram already exists, skipping: {OUTPUT_TOMOGRAM}")
             continue
-        else:
-            print(f"Running command: {style_transfer_cmd}")
-            subprocess.run(style_transfer_cmd, shell=True, check=True)
+            
+        print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
+
+        # Build faket command without environment setup
+        style_transfer_cmd = [
+            "python3", "-m", "faket.style_transfer.cli",
+            CLEAN_TOMOGRAM, STYLE_TOMOGRAM,
+            "--init", NOISY_TOMOGRAM,
+            "--output", OUTPUT_TOMOGRAM,
+            "--devices", f"cuda:{faket_gpu}",
+            "--random-seed", "0",
+            "--min-scale", str(faket_min_scale),
+            "--end-scale", str(faket_end_scale),
+            "--seq_start", "0",
+            "--seq_end", str(seq_end),
+            "--style-weights", "1.0",
+            "--content-weight", "1.0",
+            "--tv-weight", "0",
+            "--iterations", str(faket_iterations),
+            "--initial-iterations", "1",
+            "--save-every", "2",
+            "--step-size", str(faket_step_size),
+            "--avg-decay", "0.99",
+            "--style-scale-fac", "1.0",
+            "--pooling", "max",
+            "--content_layers", "8",
+            "--content_layers_weights", "100",
+            "--model_weights", "pretrained"
+        ]
+        
+        # Set CUDA_VISIBLE_DEVICES environment variable
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = str(faket_gpu)
+        
+        try:
+            print(f"Running faket command: {' '.join(style_transfer_cmd)}")
+            subprocess.run(style_transfer_cmd, env=env, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error running style transfer for {CLEAN_TOMOGRAM}: {e}")
+            continue
+        except FileNotFoundError:
+            print("Error: faket not found. Please make sure faket is installed and available in your PATH")
+            continue
 
     print("Style transfer completed for one index!")
 
@@ -179,6 +242,11 @@ def main():
     base_dir_faket = f"{base_dir}/micrograph_directory_{micrograph_directory_index}/faket_mics_style_transfer_{faket_index}"
     snr_list_dir = f"{base_dir}/micrograph_directory_{micrograph_directory_index}/snr_list_dir"
     os.makedirs(snr_list_dir, exist_ok=True)
+
+    # Check if directories exist before processing
+    if not os.path.exists(base_dir_TEM) or not os.path.exists(base_dir_Micrographs):
+        print(f"Required directories not found: {base_dir_TEM} or {base_dir_Micrographs}")
+        return
 
     tomograms = os.listdir(base_dir_TEM)
     # Sorting function
@@ -204,7 +272,6 @@ def main():
     faket_paths = [f for f in os.listdir(base_dir_faket) if f.endswith(".mrc")]
     if faket_paths:
         # Sorting function
-        
         sorted_tomograms_faket = sorted(faket_paths, key=lambda x: (int(x.split('_')[4]), int(x.split('_')[5].split('.')[0])))
         print(sorted_tomograms_faket)
         
@@ -212,6 +279,7 @@ def main():
         target_dir_faket = f"{base_dir}/train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_faket"
         target_dir_basic = f"{base_dir}/train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_basic"
         faket_paths = [os.path.join(base_dir_faket,tomogram) for tomogram in sorted_tomograms_faket]
+        
         if not os.path.exists(target_dir_faket):
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=True, micrograph_threshold=100)
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
