@@ -20,6 +20,7 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 - Pandas
 - scikit-learn
 - [faket](https://github.com/paloha/faket.git) - for neural style transfer
+- IMOD containing system
 
 ### Optional Dependencies
 - CUDA-enabled GPU (recommended for faster style transfer)
@@ -30,17 +31,12 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 1. Clone this repository:
 ```bash
 git clone https://github.com/ybo-source/fakET_polnet.git
-cd fakET_polnet
 ```
+2. Install faket (follow instructions from the [faket repository](https://github.com/paloha/faket.git)
 
-2. Install the required Python packages:
-```bash
-pip install numpy pandas scikit-learn
-```
+3. Activate faket-GPU environment
 
-3. Install faket (follow instructions from the [faket repository](https://github.com/teamtomo/faket))
 
-4. Install svnet utilities (ensure these are in your Python path)
 
 ## Directory Structure
 
@@ -48,9 +44,9 @@ Before running the pipeline, set up your directory structure as follows:
 
 ```
 base_directory/
-├── simulation_dir_0/          # Simulation data
+├── simulation_dir_0/          # Simulation data (Required-from polnet)
 │   └── all_v_czii/           # Simulation name
-├── style_tomograms_0/         # Style tomograms for projection
+├── style_tomograms_0/         # Style tomograms for projection (Required)
 ├── faket_data/
 │   └── style_micrographs_0/   # Projected style micrographs (auto-created)
 ├── micrograph_directory_0/    # Output directories (auto-created)
@@ -192,22 +188,6 @@ The pipeline provides detailed logging. Key information includes:
 - Reconstruction steps
 - Output file locations
 
-## Citation
-
-If you use this pipeline in your research, please cite:
-
-```bibtex
-@software{cryoet_style_transfer_pipeline,
-  title = {Cryo-ET Style Transfer Pipeline},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/your-username/cryoet-style-transfer-pipeline}
-}
-```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contributing
 
@@ -215,4 +195,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Support
 
-For questions and support, please open an issue on GitHub or contact [your-email@domain.com].
+For questions and support, please open an issue on GitHub.
