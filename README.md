@@ -14,7 +14,7 @@ This pipeline performs the following main operations:
 
 ### Required Software
 - Python 3.7+
-- [faket](https://github.com/teamtomo/faket) package
+- [faket](https://github.com/paloha/faket.git) package
 - CUDA-capable GPU (recommended)
 - RELION (for some utilities)
 - IMOD (for tomogram reconstruction)
@@ -41,7 +41,7 @@ cd <repository-name>
 pip install numpy pandas scipy mrcfile scikit-image
 ```
 
-3. Install faket following the official instructions from [the faket repository](https://github.com/teamtomo/faket)
+3. Install faket following the official instructions from [the faket repository](https://github.com/paloha/faket.git)
 
 4. Ensure the `svnet` module is available in your Python path (this appears to be a custom module for this project)
 
@@ -106,15 +106,8 @@ The pipeline expects the following directory structure:
 ```
 base_directory/
 ├── simulation_dir_{index}/
-├── style_micrographs_{index}/
-├── faket_data/
-│   └── style_micrographs_{index}/
-├── micrograph_directory_{index}/
-│   ├── micrographs_output_dir_{index}/
-│   └── faket_mics_style_transfer_{index}/
-├── train_directory_{index}/
-│   └── static_{index}/
-└── reconstructed_tomograms_{index}/
+├── style_tomograms_{index}/
+
 ```
 
 ## Pipeline Steps
