@@ -32,7 +32,7 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 ```bash
 git clone https://github.com/ybo-source/fakET_polnet.git
 ```
-2. Install faket (follow instructions from the [faket repository](https://github.com/paloha/faket.git)
+2. Install faket (follow instructions from the) [faket repository](https://github.com/paloha/faket.git)
 
 3. Activate faket-GPU environment
 
@@ -44,9 +44,9 @@ Before running the pipeline, set up your directory structure as follows:
 
 ```
 base_directory/
-├── simulation_dir_0/          # Simulation data (Required-from polnet)
+├── simulation_dir_<simulation_index>/          # Simulation data (Required-from polnet)
 │   └── all_v_czii/           # Simulation name
-├── style_tomograms_0/         # Style tomograms for projection (Required)
+├── style_tomograms_<style_index>/         # Style tomograms for projection (Required)
 ├── faket_data/
 │   └── style_micrographs_0/   # Projected style micrographs (auto-created)
 ├── micrograph_directory_0/    # Output directories (auto-created)
