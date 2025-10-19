@@ -1,76 +1,94 @@
-# Micrograph Style Transfer Pipeline
+# Style Transfer Pipeline for Cryo-ET Data
 
-A comprehensive pipeline for applying style transfer to cryo-electron tomography micrographs using the faket package. This tool processes simulated micrographs, applies style transfer, and reconstructs tomograms for training machine learning models.
+A comprehensive pipeline for applying style transfer to cryo-electron tomography (cryo-ET) data using faket, with support for micrograph projection, reconstruction, and training data preparation.
 
 ## Overview
 
-This pipeline performs the following main operations:
-- Projects 3D volumes into 2D micrograph tilt series
-- Applies style transfer using the faket package
-- Reconstructs stylized micrographs back into 3D tomograms
-- Prepares training data for downstream analysis
+This pipeline processes cryo-ET simulation data and applies neural style transfer to generate augmented training datasets. It handles:
 
-## Prerequisites
+- Style micrograph projection from tomograms
+- Clean and noisy micrograph generation
+- Neural style transfer using faket
+- Tomogram reconstruction from style-transferred micrographs
+- Training data organization for downstream tasks
 
-### Required Software
+## Requirements
+
+### Core Dependencies
 - Python 3.7+
-- [faket](https://github.com/paloha/faket.git) package
-- CUDA-capable GPU (recommended)
-- RELION (for some utilities)
-- IMOD (for tomogram reconstruction)
+- NumPy
+- Pandas
+- scikit-learn
+- [faket](https://github.com/teamtomo/faket) - for neural style transfer
+- [svnet](https://github.com/your-username/svnet) - for cryo-ET data processing utilities
 
-### Python Dependencies
-- numpy
-- pandas
-- scipy
-- mrcfile
-- scikit-image
-- argparse
-- And other standard scientific Python libraries
+### Optional Dependencies
+- CUDA-enabled GPU (recommended for faster style transfer)
+- MPI (for parallel processing)
 
 ## Installation
 
 1. Clone this repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/your-username/cryoet-style-transfer-pipeline.git
+cd cryoet-style-transfer-pipeline
 ```
 
 2. Install the required Python packages:
 ```bash
-pip install numpy pandas scipy mrcfile scikit-image
+pip install numpy pandas scikit-learn
 ```
 
-3. Install faket following the official instructions from [the faket repository](https://github.com/paloha/faket.git)
+3. Install faket (follow instructions from the [faket repository](https://github.com/teamtomo/faket))
 
-4. Ensure the `svnet` module is available in your Python path (this appears to be a custom module for this project)
+4. Install svnet utilities (ensure these are in your Python path)
+
+## Directory Structure
+
+Before running the pipeline, set up your directory structure as follows:
+
+```
+base_directory/
+├── simulation_dir_0/          # Simulation data
+│   └── all_v_czii/           # Simulation name
+├── style_tomograms_0/         # Style tomograms for projection
+├── faket_data/
+│   └── style_micrographs_0/   # Projected style micrographs (auto-created)
+├── micrograph_directory_0/    # Output directories (auto-created)
+├── train_directory_0/         # Training data (auto-created)
+└── pipeline.py               # This script
+```
 
 ## Usage
 
-### Basic Command
+### Basic Usage
 
 ```bash
-python main.py /path/to/base_directory
+python pipeline.py /path/to/your/base_directory
 ```
 
-### Complete Example
+### Advanced Usage with Custom Parameters
 
 ```bash
-python main.py /path/to/base_directory \
+python pipeline.py /path/to/your/base_directory \
     --micrograph_index 0 \
-    --style_index 1 \
+    --style_index 0 \
     --simulation_index 0 \
     --faket_index 0 \
     --train_dir_index 0 \
+    --static_index 0 \
     --tilt_start -60 \
     --tilt_end 60 \
     --tilt_step 3 \
     --detector_snr 0.15 0.20 \
-    --faket_command "python -m faket.style_transfer.cli" \
-    --cuda_device 0
+    --simulation_name "all_v_czii" \
+    --faket_gpu 0 \
+    --faket_iterations 5 \
+    --faket_step_size 0.15 \
+    --random_faket
 ```
 
-### Command Line Arguments
+### Parameters
 
 #### Required Arguments
 - `base_dir`: Base directory containing simulation and style directories
@@ -89,88 +107,113 @@ python main.py /path/to/base_directory \
 - `--tilt_end`: Tilt series end angle (default: 60)
 - `--tilt_step`: Tilt series step size (default: 3)
 
-#### Style Transfer Parameters
-- `--detector_snr`: Detector SNR range (default: 0.15 0.20)
-- `--denoised`: Use denoised style micrographs
-- `--random_faket`: Use random faket style transfer (default: True)
+#### Simulation Parameters
+- `--detector_snr`: Detector SNR range (default: [0.15, 0.20])
 - `--simulation_name`: Simulation name (default: "all_v_czii")
 
-#### Faket Configuration
-- `--faket_command`: Command to run faket style transfer (default: "python -m faket.style_transfer.cli")
-- `--cuda_device`: CUDA device to use (default: "0")
-
-## Directory Structure
-
-The pipeline expects the following directory structure:
-
-```
-base_directory/
-├── simulation_dir_{index}/
-├── style_tomograms_{index}/
-
-```
+#### Style Transfer Parameters
+- `--faket_gpu`: GPU device ID for faket (default: 0)
+- `--faket_iterations`: Number of iterations for faket style transfer (default: 5)
+- `--faket_step_size`: Step size for faket (default: 0.15)
+- `--faket_min_scale`: Minimum scale for faket (default: 630)
+- `--faket_end_scale`: End scale for faket (default: 630)
+- `--random_faket`: Use random faket style transfer (default: True)
+- `--denoised`: Use denoised style micrographs (default: False)
 
 ## Pipeline Steps
 
-1. **Directory Validation**: Checks that required simulation and style directories exist
-2. **Style Projection**: Projects 3D style tomograms into 2D micrographs
+1. **Directory Validation**: Checks for required simulation and style directories
+2. **Style Micrograph Projection**: Projects style tomograms to micrographs (if needed)
 3. **Label Transformation**: Processes simulation labels for training
-4. **Micrograph Projection**: Projects 3D simulations into 2D micrograph tilt series
-5. **Style Transfer**: Applies faket style transfer to micrographs
-6. **Tomogram Reconstruction**: Reconstructs stylized micrographs back into 3D tomograms
-7. **Data Organization**: Organizes output for training pipelines
+4. **Micrograph Projection**: Generates clean and noisy micrographs from simulations
+5. **Style Transfer**: Applies neural style transfer using faket
+6. **Reconstruction**: Reconstructs tomograms from style-transferred micrographs
+7. **Data Organization**: Prepares final training dataset structure
+
+## Output Structure
+
+After successful execution, the pipeline creates:
+
+```
+base_directory/
+├── micrograph_directory_{index}/
+│   ├── micrographs_output_dir_{index}/
+│   │   ├── Micrographs/          # Projected micrographs
+│   │   └── TEM/                  # TEM simulations
+│   ├── faket_mics_style_transfer_{index}/  # Style-transferred tomograms
+│   └── snr_list_dir/             # SNR metadata
+├── style_micrographs_output_{index}/       # Temporary style projection
+├── faket_data/
+│   └── style_micrographs_{index}/ # Final style micrographs
+└── train_directory_{index}/
+    └── static_{index}/
+        ├── ExperimentRuns_faket/  # Style-transferred training data
+        └── ExperimentRuns_basic/  # Basic training data
+```
 
 ## Customization
 
-### Using Different Faket Commands
+### Adding New Style Sources
 
-If faket is installed in a custom location or requires special invocation:
+1. Place new style tomograms in `base_directory/style_tomograms_{new_index}/`
+2. Run the pipeline with `--style_index {new_index}`
 
-```bash
-python pipeline.py /path/to/base_dir \
-    --faket_command "/path/to/faket/env/bin/python -m faket.style_transfer.cli"
-```
+### Modifying Style Transfer Parameters
 
-### Multiple GPU Usage
-
-To use a different GPU:
+Adjust faket parameters for different style transfer effects:
 
 ```bash
-python pipeline.py /path/to/base_dir --cuda_device 1
+python pipeline.py /path/to/base_directory \
+    --faket_iterations 10 \
+    --faket_step_size 0.1 \
+    --faket_min_scale 500 \
+    --faket_end_scale 800
 ```
 
-## Output
+### Using Pre-projected Style Micrographs
 
-The pipeline generates:
-- Style-transferred micrographs in `faket_mics_style_transfer_*/`
-- Reconstructed tomograms in `reconstructed_tomograms_*/`
-- Training-ready data in `train_directory_*/static_*/`
-- SNR lists for quality control
+If you already have style micrographs, place them in:
+`base_directory/faket_data/style_micrographs_{index}/`
+The pipeline will skip projection and use them directly.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Module not found errors**: Ensure all dependencies are installed and the `svnet` module is in your Python path
-2. **CUDA out of memory**: Reduce batch size or use a smaller model
-3. **Missing directories**: Verify the directory structure matches expectations
-4. **faket command not found**: Use the `--faket_command` parameter to specify the correct path
+1. **Missing Dependencies**: Ensure faket and svnet utilities are properly installed
+2. **Directory Not Found**: Verify the base directory contains required subdirectories
+3. **CUDA Errors**: Check that CUDA is properly configured and the specified GPU is available
+4. **Memory Issues**: Reduce batch size or use fewer iterations for style transfer
 
-### Debug Mode
+### Logging
 
-For verbose output, you can modify the script to add debug prints or use the existing print statements to track progress.
+The pipeline provides detailed logging. Key information includes:
+- Directory validation status
+- Style transfer progress
+- Reconstruction steps
+- Output file locations
 
 ## Citation
 
-If you use this software in your research, please cite the relevant papers:
-- faket: [faket publication]
-- RELION: [RELION publication]
-- IMOD: [IMOD publication]
+If you use this pipeline in your research, please cite:
+
+```bibtex
+@software{cryoet_style_transfer_pipeline,
+  title = {Cryo-ET Style Transfer Pipeline},
+  author = {Your Name},
+  year = {2024},
+  url = {https://github.com/your-username/cryoet-style-transfer-pipeline}
+}
+```
 
 ## License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
 
 ## Support
 
-For questions and issues, please open an issue on the GitHub repository or contact [your email/contact information].
+For questions and support, please open an issue on GitHub or contact [your-email@domain.com].
